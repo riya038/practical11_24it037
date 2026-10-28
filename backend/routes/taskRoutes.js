@@ -1,6 +1,7 @@
 const express = require('express');
 const Task = require('../models/Task');
 const cache = require('../utils/cache');
+const taskEvents = require('../events');
 const authMiddleware = require('../middleware/authMiddleware');
 const {
   validateTask,
@@ -145,11 +146,21 @@ router.post('/', validateTask, async (req, res, next) => {
       cache.del(`all_tasks_${req.user.id}`);
     }
 
+    // Step 3: Respond immediately before event handler finishes
+    console.log(`[API] Response sent at ${new Date().toISOString()}`);
     res.status(201).json({
       success: true,
       message: 'Task created and secured with JWT ownership.',
       data: task,
     });
+
+    // Prepare task payload and forward test flags if provided
+    const taskData = task.toObject ? task.toObject() : { ...task };
+    if (req.body.forceError) taskData.forceError = true;
+    if (req.body.forceAsyncError) taskData.forceAsyncError = true;
+
+    // Emit 'task-created' event handled asynchronously by listener
+    taskEvents.emit('task-created', taskData);
   } catch (err) {
     next(err);
   }
@@ -228,11 +239,15 @@ router.delete('/:id', async (req, res, next) => {
       cache.del(`task_${req.user.id}_${req.params.id}`);
     }
 
+    // Supplementary Problem 1: Respond immediately and emit 'task-deleted'
+    console.log(`[API] Delete response sent at ${new Date().toISOString()}`);
     res.status(200).json({
       success: true,
       message: 'Task deleted successfully from database.',
       data: task,
     });
+
+    taskEvents.emit('task-deleted', task);
   } catch (err) {
     next(err);
   }

@@ -6,6 +6,9 @@ const cors = require('cors');
 const authRoutes = require('./routes/authRoutes');
 const taskRoutes = require('./routes/taskRoutes');
 
+// Step 2 & Troubleshooting Guide: Register event listeners at server startup
+require('./listeners');
+
 const app = express();
 
 // ==========================================
@@ -54,8 +57,13 @@ const cache = require('./utils/cache');
 app.get('/', (req, res) => {
   res.status(200).json({
     success: true,
-    message: 'Practical 9: In-Memory Caching and Query Optimization API is running.',
+    message: 'Practical 10: Asynchronous Processing with Event-Driven Architecture API is running.',
     version: '1.0.0',
+    events: {
+      'task-created': 'Asynchronously logged with task title, timestamp, and assigned user (2s delay simulation)',
+      'task-deleted': 'Asynchronously logged with deleted task details',
+      'error': 'Error listener catches and logs any exceptions thrown inside task handlers',
+    },
     endpoints: {
       auth: {
         register: 'POST /auth/register',
@@ -65,9 +73,9 @@ app.get('/', (req, res) => {
       tasks: {
         getAll: 'GET /tasks (Cached with node-cache, 60s TTL)',
         getById: 'GET /tasks/:id (Cached separately, 60s TTL)',
-        create: 'POST /tasks (Invalidates cache)',
+        create: 'POST /tasks (Emits task-created event asynchronously after 201 response)',
         update: 'PUT /tasks/:id (Invalidates cache)',
-        delete: 'DELETE /tasks/:id (Invalidates cache)',
+        delete: 'DELETE /tasks/:id (Emits task-deleted event asynchronously after 200 response)',
       },
       cache: {
         stats: 'GET /cache/stats (Cache hit/miss metrics)',
@@ -164,7 +172,8 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log(`🚀 Practical 9 Express API running on http://localhost:${PORT}`);
+  console.log(`🚀 Practical 10 Express API running on http://localhost:${PORT}`);
+  console.log(`📡 Event-Driven Architecture active with Node.js native EventEmitter.`);
   console.log(`⚡ In-Memory Cache active with node-cache (stdTTL: 60s).`);
   console.log(`🔐 JWT Secret active with 1-hour token expiration.`);
 });
