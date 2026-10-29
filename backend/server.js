@@ -38,15 +38,17 @@ app.use((req, res, next) => {
 const MONGO_URI =
   process.env.MONGO_URI || 'mongodb://mongodb:27017/taskdb';
 
-mongoose
-  .connect(MONGO_URI)
-  .then(() => {
-    console.log('✅ MongoDB connected successfully to:', MONGO_URI);
-  })
-  .catch((err) => {
-    console.error('❌ MongoDB connection error:', err.message);
-    process.exit(1);
-  });
+if (process.env.NODE_ENV !== 'test') {
+  mongoose
+    .connect(MONGO_URI)
+    .then(() => {
+      console.log('✅ MongoDB connected successfully to:', MONGO_URI);
+    })
+    .catch((err) => {
+      console.error('❌ MongoDB connection error:', err.message);
+      process.exit(1);
+    });
+}
 
 // ==========================================
 // 3. API ROUTES
@@ -58,7 +60,7 @@ const cache = require('./utils/cache');
 app.get('/', (req, res) => {
   res.status(200).json({
     success: true,
-    message: 'Practical 11: Containerization with Docker and Docker Compose API is running.',
+    message: 'Practical 12: CI/CD Pipeline with GitHub Actions API is running.',
     version: '1.0.0',
     container: {
       status: 'active',
@@ -178,10 +180,14 @@ app.use((err, req, res, next) => {
 // ==========================================
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log(`🚀 Practical 11 Express API running on http://localhost:${PORT}`);
-  console.log(`🐳 Docker Containerized stack: backend connected to ${MONGO_URI}`);
-  console.log(`📡 Event-Driven Architecture active with Node.js native EventEmitter.`);
-  console.log(`⚡ In-Memory Cache active with node-cache (stdTTL: 60s).`);
-  console.log(`🔐 JWT Secret active with 1-hour token expiration.`);
-});
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
+    console.log(`🚀 Practical 12 Express API running on http://localhost:${PORT}`);
+    console.log(`🐳 Docker Containerized stack: backend connected to ${MONGO_URI}`);
+    console.log(`📡 Event-Driven Architecture active with Node.js native EventEmitter.`);
+    console.log(`⚡ In-Memory Cache active with node-cache (stdTTL: 60s).`);
+    console.log(`🔐 JWT Secret active with 1-hour token expiration.`);
+  });
+}
+
+module.exports = app;

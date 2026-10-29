@@ -1,8 +1,9 @@
 {
-  "name": "practical-11-docker-containerization",
+  "name": "practical-12-cicd-github-actions",
   "version": "1.0.0",
-  "description": "Practical 11: Containerization with Docker and Docker Compose (Node/Express, React, MongoDB)",
+  "description": "Practical 12: CI/CD Pipeline with GitHub Actions and Automated Testing",
   "scripts": {
+    "test": "npm --prefix backend test",
     "docker:up": "docker-compose up --build",
     "docker:down": "docker-compose down",
     "docker:ps": "docker ps",
@@ -14,14 +15,14 @@
     "install:all": "cd backend && npm install && cd ../frontend && npm install"
   },
   "keywords": [
+    "github-actions",
+    "ci-cd",
+    "jest",
+    "supertest",
+    "automated-testing",
     "docker",
     "docker-compose",
-    "containerization",
-    "react",
-    "express",
-    "mongodb",
-    "event-driven-architecture",
-    "practical11"
+    "practical12"
   ],
   "author": "24IT037",
   "license": "ISC"

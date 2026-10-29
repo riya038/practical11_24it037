@@ -1,4 +1,6 @@
-# Practical 11: Containerization with Docker and Docker Compose
+# Practical 12: CI/CD Pipeline with GitHub Actions
+
+[![CI Pipeline](https://github.com/riya038/practical11_24it037/actions/workflows/ci.yml/badge.svg)](https://github.com/riya038/practical11_24it037/actions/workflows/ci.yml)
 
 **Course:** Advanced Web Development Frameworks (ITUE301)  
 **Program:** B.Tech (IT / CE / CSE / AIML) — CHAROTAR UNIVERSITY OF SCIENCE AND TECHNOLOGY (CHARUSAT)  
@@ -9,262 +11,248 @@
 
 ## 📌 Objectives
 
-1. Containerize the full-stack Task Management application (React frontend, Node/Express backend, and MongoDB database) using Docker.
-2. Write production-ready `Dockerfile` configurations for both backend and frontend services.
-3. Orchestrate multi-container services using `docker-compose.yml` on a unified user-defined bridge network (`app-network`).
-4. Establish inter-container communication using Docker internal DNS (referencing `mongodb` service name instead of `localhost`).
-5. Guarantee complete stack execution with a single command: `docker-compose up --build`.
-6. Implement **Supplementary Problems**:
-   - Exclude `node_modules` and `.env` via `.dockerignore` to streamline build context.
-   - Utilize multi-stage build in frontend Dockerfile.
-   - Attach a persistent named volume (`mongo-data`) to MongoDB to retain data across container restarts.
+1. Automate application testing using a Continuous Integration (CI) pipeline powered by **GitHub Actions**.
+2. Configure workflow automation triggered automatically on every `push` and `pull_request` to the `main` branch.
+3. Install dependencies (`npm install`) and execute automated unit/integration tests (`npm test`) inside an isolated `ubuntu-latest` CI runner.
+4. Demonstrate a **failed pipeline (Red ❌)** caused by a deliberately broken assertion.
+5. Demonstrate a **fixed pipeline (Green ✅)** once test assertions are corrected.
+6. Address **Supplementary Problems**:
+   - Multiple automated test coverage across endpoints (`GET /` and `GET /cache/stats`).
+   - Workflow trigger configuration (`push` and `pull_request` targeting `main`).
+   - GitHub Actions pipeline status badge embedded in the `README.md`.
 
 ---
 
-## 🏗️ Architecture & Network Flow
+## 🏗️ Architecture & CI Workflow
 
-### Multi-Container Stack Diagram
+### CI Pipeline Flow Diagram
 
 ```text
-docker-compose.yml
- ├── frontend (React + Vite Preview, Port 5173:5173)
- ├── backend  (Node/Express API, Port 5000:5000)
- └── mongodb  (Official MongoDB Image, Port 27017:27017, Volume: mongo-data)
-
-Network: app-network (Bridge)
- ┌──────────────┐         ┌──────────────┐         ┌──────────────┐
- │   frontend   │ ──────► │   backend    │ ──────► │   mongodb    │
- │ (port 5173)  │         │ (port 5000)  │         │ (port 27017) │
- └──────────────┘         └──────────────┘         └──────────────┘
+       Developer Machine
+              │
+              │  git push origin main
+              ▼
+    GitHub Remote Repository
+              │
+              │  Trigger: on: push [main]
+              ▼
+   GitHub Actions CI Runner (ubuntu-latest)
+ ┌──────────────────────────────────────────────────┐
+ │ Job: build-and-test                              │
+ │  ├── Step 1: actions/checkout@v4                │
+ │  ├── Step 2: actions/setup-node@v4 (Node.js 18)  │
+ │  ├── Step 3: npm install                         │
+ │  ├── Step 4: npm test (Jest + Supertest)         │
+ │  └── Step 5: Report Pass / Fail Status           │
+ └─────────────────────────┬────────────────────────┘
+                           │
+             ┌─────────────┴─────────────┐
+             ▼                           ▼
+      All Tests Pass             Any Test Fails
+     Green Checkmark (✅)         Red Crossmark (❌)
 ```
 
-### Docker Network & Host Access Architecture (Mermaid)
+### GitHub Actions Execution Sequence (Mermaid)
 
 ```mermaid
-graph TD
-    subgraph Host Machine (Browser & User)
-        Browser["Host Browser (http://localhost:5173)"]
-        HostAPI["API Client (http://localhost:5000)"]
+sequenceDiagram
+    autonumber
+    actor Dev as Developer
+    participant Git as GitHub Repository
+    participant Runner as GitHub Actions Runner (ubuntu-latest)
+    participant Node as Node.js v18 Environment
+    participant Jest as Jest / Supertest Runner
+
+    Dev->>Git: git push origin main
+    Git->>Runner: Trigger workflow (ci.yml) on push
+    Runner->>Runner: actions/checkout@v4 (Clone Repo)
+    Runner->>Node: actions/setup-node@v4 (Install Node 18)
+    Node->>Node: npm install (Install Dependencies)
+    Node->>Jest: npm test (Run Test Suite)
+    alt All Tests Pass
+        Jest-->>Runner: Exit Code: 0 (All 3 tests passed)
+        Runner-->>Git: Report Success (Green Checkmark ✅)
+    else Deliberate Test Failure
+        Jest-->>Runner: Exit Code: 1 (Assertion Failed)
+        Runner-->>Git: Report Failure (Red X ❌)
     end
-
-    subgraph Docker Engine: user-defined bridge (app-network)
-        subgraph Frontend Container: taskflow-frontend
-            Vite["React Preview Server (Port 5173)"]
-        end
-
-        subgraph Backend Container: taskflow-backend
-            Express["Express Server (Port 5000)"]
-        end
-
-        subgraph MongoDB Container: taskflow-mongodb
-            MongoEngine["MongoDB Daemon (Port 27017)"]
-            NamedVol[("Named Volume: mongo-data")]
-            MongoEngine --- NamedVol
-        end
-    end
-
-    Browser -->|Host Port 5173:5173| Vite
-    HostAPI -->|Host Port 5000:5000| Express
-    Vite -. Client AJAX Requests .-> Express
-    Express -->|Internal DNS: mongodb:27017| MongoEngine
 ```
 
 ---
 
-## 📋 Docker Desktop Pre-Flight Checklist (Crucial)
+## 🛠️ Implementation Details
 
-Before running any Docker commands, verify your host environment:
-
-### Step 0.1: Ensure Docker Desktop is Running
-1. Open **Docker Desktop** from the Windows Start Menu.
-2. Wait until the whale icon in the Windows Taskbar (System Tray) becomes steady.
-3. In Docker Desktop, the bottom-left corner should display a green badge with **"Engine running"**.
-
-### Step 0.2: Verify Docker and Docker Compose CLI
-Open PowerShell or Command Prompt in the project folder and run:
-```powershell
-docker --version
-docker compose version
-```
-*Expected output:*
-- `Docker version 24.x.x` (or newer)
-- `Docker Compose version v2.x.x` (or newer)
-
-### Step 0.3: Avoid Host Port Conflicts
-Docker Compose binds host ports `5173`, `5000`, and `27017`. Ensure no local instances are already running:
-- **Local MongoDB Service:** If you have MongoDB installed as a local Windows service, stop it before starting Docker:
-  ```powershell
-  net stop MongoDB
-  ```
-- **Local Node.js Dev Servers:** Terminate any running `npm run dev` in backend or frontend terminals.
-
----
-
-## 🛠️ Configuration & Implementation
-
-### 1. Backend Dockerfile (`backend/Dockerfile`)
-```dockerfile
-FROM node:18
-
-WORKDIR /app
-
-# Copy package manifests first to leverage Docker layer caching
-COPY package*.json ./
-RUN npm install
-
-# Copy application source code
-COPY . .
-
-EXPOSE 5000
-
-CMD ["node", "server.js"]
+### 1. Test Setup (`backend/package.json`)
+Installed **Jest** and **Supertest** as development dependencies and configured the `test` script:
+```json
+"scripts": {
+  "start": "node server.js",
+  "dev": "nodemon server.js",
+  "test": "jest --runInBand --detectOpenHandles --forceExit"
+},
+"devDependencies": {
+  "jest": "^30.5.2",
+  "supertest": "^7.3.1"
+}
 ```
 
-### 2. Frontend Dockerfile (`frontend/Dockerfile`)
-```dockerfile
-# Multi-stage build for React Vite frontend (Practical 11)
-FROM node:18 AS build
+### 2. Automated API Test Suite (`backend/tests/api.test.js`)
+```javascript
+const request = require('supertest');
+const app = require('../server');
 
-WORKDIR /app
+describe('Practical 12: Automated CI/CD Pipeline API Tests', () => {
+  // Test 1: Main API Status & Health Endpoint
+  test('GET / returns status 200 and API details', async () => {
+    const res = await request(app).get('/');
+    expect(res.statusCode).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.version).toBe('1.0.0');
+  });
 
-# Copy package manifests first to leverage Docker layer caching
-COPY package*.json ./
-RUN npm install
+  // Test 2: Cache Performance & Statistics Endpoint (Supplementary)
+  test('GET /cache/stats returns status 200 and cache performance metrics', async () => {
+    const res = await request(app).get('/cache/stats');
+    expect(res.statusCode).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toBeDefined();
+  });
 
-# Build production bundle
-COPY . .
-RUN npm run build
-
-EXPOSE 5173
-
-# Serve production preview accessible on all interfaces
-CMD ["npm", "run", "preview", "--", "--host", "--port", "5173"]
+  // Test 3: Authentication Security Verification
+  test('GET /tasks without authentication token returns 401 Unauthorized', async () => {
+    const res = await request(app).get('/tasks');
+    expect(res.statusCode).toBe(401);
+    expect(res.body.success).toBe(false);
+  });
+});
 ```
 
-### 3. Build Optimization with `.dockerignore`
-Both `backend/.dockerignore` and `frontend/.dockerignore` exclude bulky host dependencies and environment files:
-```text
-node_modules
-dist
-npm-debug.log
-.env
-.git
-.gitignore
-```
-
-### 4. Docker Compose Orchestration (`docker-compose.yml`)
+### 3. CI Workflow Definition (`.github/workflows/ci.yml`)
 ```yaml
-version: '3.8'
+name: CI Pipeline
 
-services:
-  mongodb:
-    image: mongo:latest
-    container_name: taskflow-mongodb
-    restart: always
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo-data:/data/db
-    networks:
-      - app-network
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
 
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: taskflow-backend
-    restart: always
-    ports:
-      - "5000:5000"
-    environment:
-      - PORT=5000
-      - MONGO_URI=mongodb://mongodb:27017/taskdb
-      - JWT_SECRET=super_secret_jwt_key_practical11_itue301_charusat_24it037
-      - JWT_EXPIRES_IN=1h
-    depends_on:
-      - mongodb
-    networks:
-      - app-network
+jobs:
+  build-and-test:
+    name: Build and Run Automated Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout repository code
+        uses: actions/checkout@v4
 
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: taskflow-frontend
-    restart: always
-    ports:
-      - "5173:5173"
-    environment:
-      - VITE_API_URL=http://localhost:5000
-    depends_on:
-      - backend
-    networks:
-      - app-network
+      - name: Set up Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
 
-volumes:
-  mongo-data:
-    driver: local
+      - name: Install dependencies (npm install)
+        run: npm install
 
-networks:
-  app-network:
-    driver: bridge
+      - name: Run automated tests (npm test)
+        run: npm test
 ```
 
 ---
 
-## 🚀 Running the Stack Step-by-Step
+## 🚀 Running the Practical Step-by-Step
 
-### 1. Build and Launch Containers
-In the project root directory, run:
+### Step 1: Run Tests Locally First
+In your terminal, verify that Jest runs and passes locally:
 ```powershell
-docker-compose up --build
+npm test
 ```
-*(Or run in detached background mode using `docker-compose up --build -d`)*
+*Expected Output:*
+```text
+PASS tests/api.test.js
+  Practical 12: Automated CI/CD Pipeline API Tests
+    ✓ GET / returns status 200 and API details
+    ✓ GET /cache/stats returns status 200 and cache performance metrics
+    ✓ GET /tasks without authentication token returns 401 Unauthorized
 
-### 2. Verify Container Health
-Check active containers in a new terminal window:
-```powershell
-docker ps
+Test Suites: 1 passed, 1 total
+Tests:       3 passed, 3 total
 ```
-You should see all 3 containers active:
-- `taskflow-frontend` (Port `0.0.0.0:5173->5173/tcp`)
-- `taskflow-backend` (Port `0.0.0.0:5000->5000/tcp`)
-- `taskflow-mongodb` (Port `0.0.0.0:27017->27017/tcp`)
 
-### 3. Access the Application
-- **Frontend App:** Open [http://localhost:5173](http://localhost:5173) in your browser.
-- **Backend API Documentation:** Open [http://localhost:5000](http://localhost:5000).
-- **Cache Stats Endpoint:** [http://localhost:5000/cache/stats](http://localhost:5000/cache/stats).
+### Step 2: Push Workflow to GitHub & Observe Passed Pipeline (Green Checkmark)
+Commit and push the CI workflow and tests:
+```powershell
+git add .
+git commit -m "feat(practical12): Set up GitHub Actions CI pipeline and automated tests"
+git push origin main
+```
+1. Open your repository on GitHub: `https://github.com/riya038/practical11_24it037` (or your active repository).
+2. Click on the **Actions** tab at the top.
+3. You will see the workflow **"CI Pipeline"** running.
+4. Click into the workflow run to view live logs for `npm install` and `npm test`.
+5. Observe the **Green Checkmark (✅)** indicating a successful build!
 
-### 4. Stop the Stack
-To shut down containers gracefully:
-```powershell
-docker-compose down
-```
-To stop and remove containers including the persistent volume:
-```powershell
-docker-compose down -v
-```
+### Step 3: Deliberately Break the Test (Demonstrate Failed Pipeline)
+To demonstrate a failed pipeline for your lab file:
+1. Open `backend/tests/api.test.js`.
+2. Change line 8 from:
+   ```javascript
+   expect(res.statusCode).toBe(200);
+   ```
+   to a deliberately incorrect expected value:
+   ```javascript
+   expect(res.statusCode).toBe(500); // Deliberate failure
+   ```
+3. Commit and push the broken test:
+   ```powershell
+   git add backend/tests/api.test.js
+   git commit -m "test: deliberate failure to demonstrate CI pipeline failure"
+   git push origin main
+   ```
+4. Check the **Actions** tab on GitHub:
+   - The workflow run will fail with a **Red X (❌)**.
+   - Click into the job log to see: `Expected: 500, Received: 200`.
+   - Take a screenshot of this failed run.
+
+### Step 4: Fix the Test and Push Again (Demonstrate Passed Pipeline)
+1. Restore line 8 in `backend/tests/api.test.js` back to `200`:
+   ```javascript
+   expect(res.statusCode).toBe(200);
+   ```
+2. Commit and push the fix:
+   ```powershell
+   git add backend/tests/api.test.js
+   git commit -m "fix: resolve test assertion and verify green pipeline"
+   git push origin main
+   ```
+3. Refresh the **Actions** tab:
+   - The new workflow run passes with a **Green Checkmark (✅)**!
+   - Take a screenshot of the passed run.
 
 ---
 
 ## 💡 Key Analysis & Viva Questions
 
-### Q1: Why does the backend container need to reference the MongoDB container by its service name (`mongodb`) rather than `localhost`?
+### Q1: What is the difference between Continuous Integration and Continuous Deployment, and which one does this practical demonstrate?
 > **Answer:**  
-> In Docker, each container operates within its own isolated network namespace with its own dedicated loopback interface (`localhost` / `127.0.0.1`). If the backend process requests `localhost:27017`, it looks for MongoDB inside the *backend container itself*, where no database server is running.  
-> When containers are attached to a user-defined bridge network (`app-network`), Docker Compose injects an embedded DNS server (at `127.0.0.11`) that automatically resolves service names defined in `docker-compose.yml` (e.g., `mongodb`) to the actual internal container IP address assigned on that virtual bridge.
+> - **Continuous Integration (CI):** The practice of automating the building and testing of code every time a team member commits changes to version control. Its goal is to catch bugs, syntax errors, and regressions as early as possible.
+> - **Continuous Deployment (CD):** The automated process where changes that pass the CI pipeline are automatically deployed directly to staging or production environments (e.g. AWS, Render, Docker registry) without manual intervention.
+> - **Practical Demonstration:** This practical specifically demonstrates **Continuous Integration (CI)** — building the project on `ubuntu-latest`, installing dependencies via `npm install`, and running automated Jest test suites on every `push`.
 
-### Q2: What is the difference between `EXPOSE` in a Dockerfile and the `ports` mapping in `docker-compose.yml`?
+### Q2: Why does running tests automatically on every push catch problems earlier than testing manually before a release?
 > **Answer:**  
-> - **`EXPOSE` (Dockerfile):** Functions as documentation and metadata. It declares which port the containerized process listens on inside the container network, but it does **not** publish or bind that port to the host machine.
-> - **`ports` (docker-compose.yml):** Defines an active NAT port forwarding rule (e.g. `"5000:5000"`) on the host machine. It binds the specified port on the host operating system to the container port, making the container service accessible from outside Docker (such as from a host web browser).
+> 1. **Immediate Feedback Loop:** Developers get notified within seconds/minutes of pushing broken code, while the context of the change is still fresh in their mind.
+> 2. **Pinpoint Error Attribution:** Because tests run on every commit, bugs are traced to a single specific commit rather than having to debug hundreds of changes accumulated before a manual release.
+> 3. **Eliminates Human Error:** Automated tests run consistently in a clean, reproducible environment, eliminating mistakes where developers forget to run manual tests locally.
 
-### Q3: Why is it considered bad practice to copy `node_modules` into a Docker image instead of running `npm install` inside the container?
+### Q3: What would happen to the pipeline if the test file path were incorrect — would the workflow fail at the same step as a genuine test failure?
 > **Answer:**  
-> 1. **Binary Architecture Incompatibilities:** Many npm packages (e.g., `bcrypt`, native bindings) compile platform-dependent C/C++ binaries. If compiled on Windows x64 host, they will crash inside the Linux container.
-> 2. **Build Context Bloat & Slowness:** `node_modules` typically contains tens of thousands of files. Transferring them into the Docker daemon daemon build context dramatically slows down every build step.
-> 3. **Clean & Reproducible Builds:** Executing `npm install` within the target container OS guarantees clean, reproducible dependencies aligned with the containerized runtime environment.
+> - **Yes, it would fail at the same step (`run: npm test`), but with a fundamentally different error message:**
+>   - **Genuine Test Failure:** Jest executes successfully, runs the test assertions, and fails on `expect(received).toBe(expected)`. The exit code is `1` due to test assertion failure.
+>   - **Incorrect File Path:** Jest prints `"No tests found related to files matching <path>"` or throws a module resolution error (`Cannot find module '...'`).
+> - The CI pipeline fails at the `npm test` step in both cases because any non-zero exit code stops the workflow, but inspecting the pipeline log immediately distinguishes a file path error from an assertion failure.
 
 ---
 
@@ -272,20 +260,18 @@ docker-compose down -v
 
 | Symptom | Likely Cause | Verified Solution |
 | :--- | :--- | :--- |
-| **Backend cannot connect to MongoDB** | Connection string uses `localhost` or `127.0.0.1` instead of the Compose service name. | Ensure `MONGO_URI` is set to `mongodb://mongodb:27017/taskdb` in `docker-compose.yml`. |
-| **Port already in use error** | A previous container or local process (e.g., local MongoDB service or Node server) is already bound to port 27017, 5000, or 5173. | Stop local services (`net stop MongoDB`) or run `docker ps` and stop conflicting containers using `docker stop <id>`. |
-| **Build is extremely slow** | Host `node_modules` is being copied into the build context. | Add a `.dockerignore` file containing `node_modules` in both backend and frontend directories. |
-| **Changes to code not reflected after rebuild** | Old image layers are cached. | Force a fresh build by executing: `docker-compose up --build`. |
+| **Workflow does not appear under Actions tab** | File is not located at `.github/workflows/` or has incorrect extension (e.g., `.yaml` instead of `.yml`). | Ensure exact path: `.github/workflows/ci.yml` and that it is committed and pushed to GitHub. |
+| **Workflow fails immediately with a YAML syntax error** | Incorrect indentation in YAML file (using tabs instead of spaces). | Use strict 2-space indentation and avoid tab characters. |
+| **`npm test` fails with 'no test specified'** | `package.json` test script is not configured for Jest. | Ensure `"scripts": { "test": "jest --runInBand --forceExit" }` is set in `backend/package.json`. |
+| **Pipeline passes even with a broken test** | Test is written without actual assertions or does not await asynchronous promises. | Verify `async/await` syntax with `expect(res.statusCode).toBe(...)`. |
 
 ---
 
 ## 📦 Deliverables Checklist
 
-- [x] Backend `Dockerfile` configured with Node 18 runtime.
-- [x] Frontend `Dockerfile` configured with multi-stage build and Vite preview.
-- [x] `.dockerignore` files created for both backend and frontend.
-- [x] `docker-compose.yml` orchestrating frontend, backend, and MongoDB.
-- [x] Named volume `mongo-data` attached for MongoDB persistence.
-- [x] Dedicated bridge network `app-network` configured for inter-container communication.
-- [x] Backend database URI updated to `mongodb://mongodb:27017/taskdb`.
-- [x] Single-command execution verified (`docker-compose up --build`).
+- [x] Installed `jest` and `supertest` testing framework.
+- [x] Configured `"test": "jest"` in backend `package.json`.
+- [x] Written automated unit/integration test suite (`backend/tests/api.test.js`).
+- [x] Created GitHub Actions CI pipeline configuration (`.github/workflows/ci.yml`).
+- [x] Tested and verified all tests pass cleanly locally (`npm test`).
+- [x] Added workflow status badge to `README.md`.
