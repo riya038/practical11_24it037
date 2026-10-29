@@ -34,8 +34,9 @@ app.use((req, res, next) => {
 // ==========================================
 // 2. MONGODB CONNECTION
 // ==========================================
+// In Docker Compose, services communicate via service name 'mongodb'
 const MONGO_URI =
-  process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/taskdb_practical7';
+  process.env.MONGO_URI || 'mongodb://mongodb:27017/taskdb';
 
 mongoose
   .connect(MONGO_URI)
@@ -57,8 +58,14 @@ const cache = require('./utils/cache');
 app.get('/', (req, res) => {
   res.status(200).json({
     success: true,
-    message: 'Practical 10: Asynchronous Processing with Event-Driven Architecture API is running.',
+    message: 'Practical 11: Containerization with Docker and Docker Compose API is running.',
     version: '1.0.0',
+    container: {
+      status: 'active',
+      database: MONGO_URI,
+      environment: process.env.NODE_ENV || 'production',
+      network: 'app-network (bridge)',
+    },
     events: {
       'task-created': 'Asynchronously logged with task title, timestamp, and assigned user (2s delay simulation)',
       'task-deleted': 'Asynchronously logged with deleted task details',
@@ -172,7 +179,8 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log(`🚀 Practical 10 Express API running on http://localhost:${PORT}`);
+  console.log(`🚀 Practical 11 Express API running on http://localhost:${PORT}`);
+  console.log(`🐳 Docker Containerized stack: backend connected to ${MONGO_URI}`);
   console.log(`📡 Event-Driven Architecture active with Node.js native EventEmitter.`);
   console.log(`⚡ In-Memory Cache active with node-cache (stdTTL: 60s).`);
   console.log(`🔐 JWT Secret active with 1-hour token expiration.`);

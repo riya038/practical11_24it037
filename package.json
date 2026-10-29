@@ -1,14 +1,28 @@
 {
-  "name": "practical-10-event-driven-architecture",
+  "name": "practical-11-docker-containerization",
   "version": "1.0.0",
-  "description": "Practical 10: Asynchronous Processing with Event-Driven Architecture (Node.js EventEmitter), Express, and MongoDB",
+  "description": "Practical 11: Containerization with Docker and Docker Compose (Node/Express, React, MongoDB)",
   "scripts": {
+    "docker:up": "docker-compose up --build",
+    "docker:down": "docker-compose down",
+    "docker:ps": "docker ps",
+    "docker:logs": "docker-compose logs -f",
+    "docker:clean": "docker-compose down -v",
     "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && npm run dev",
     "test:events": "cd backend && npm run test:events",
     "install:all": "cd backend && npm install && cd ../frontend && npm install"
   },
-  "keywords": ["event-emitter", "event-driven-architecture", "asynchronous-processing", "node-cache", "jwt", "authentication", "express", "mongodb", "practical10"],
+  "keywords": [
+    "docker",
+    "docker-compose",
+    "containerization",
+    "react",
+    "express",
+    "mongodb",
+    "event-driven-architecture",
+    "practical11"
+  ],
   "author": "24IT037",
   "license": "ISC"
 }

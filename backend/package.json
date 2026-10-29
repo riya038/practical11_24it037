@@ -1,7 +1,7 @@
 {
-  "name": "practical-10-backend",
+  "name": "practical-11-backend",
   "version": "1.0.0",
-  "description": "Asynchronous Processing with Event-Driven Architecture (Node.js EventEmitter) for Practical 10",
+  "description": "Containerized Full-Stack Backend for Practical 11 with Node/Express, MongoDB, and Docker Compose",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

@@ -18,7 +18,7 @@ export default function Header({ isServerOnline, isCheckingServer, onCheckServer
               <h1 className="brand-title">TaskFlow Auth</h1>
             </div>
             <p className="brand-subtitle">
-              JWT Authentication & Express Middleware Pipeline
+              Containerized Full-Stack Task Management (Docker & Compose)
             </p>
           </div>
         </div>

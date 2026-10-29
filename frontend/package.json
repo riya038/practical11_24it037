@@ -1,7 +1,8 @@
 {
-  "name": "practical-7-frontend",
+  "name": "practical-11-frontend",
   "private": true,
   "version": "1.0.0",
+  "description": "Containerized React Frontend for Practical 11 (Vite + Docker Compose)",
   "type": "module",
   "scripts": {
     "dev": "vite",
