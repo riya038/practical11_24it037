@@ -1,5 +1,5 @@
 # Multi-stage build for React Vite frontend (Practical 11)
-FROM node:18 AS build
+FROM node:20 AS build
 
 # Set working directory
 WORKDIR /app
@@ -19,3 +19,4 @@ EXPOSE 5173
 
 # Serve production preview bound to 0.0.0.0
 CMD ["npm", "run", "preview", "--", "--host", "--port", "5173"]
+
