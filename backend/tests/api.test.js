@@ -5,7 +5,7 @@ describe('Practical 12: Automated CI/CD Pipeline API Tests', () => {
   // Test 1: Main API Status Endpoint (Health Check)
   test('GET / returns status 200 and API details', async () => {
     const res = await request(app).get('/');
-    expect(res.statusCode).toBe(200);
+    expect(res.statusCode).toBe(500);
     expect(res.body.success).toBe(true);
     expect(res.body.version).toBe('1.0.0');
   });
